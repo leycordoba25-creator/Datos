@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GSH · Dashboard Propuestas Presentadas</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --slh: #58a6ff;
+      --bpo: #3fb950;
+      --ioda: #f78166;
+      --accent: #d2a8ff;
+      --gold: #e3b341;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .header-left { display: flex; flex-direction: column; gap: 4px; }
+    .header-tag {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    .header-title { font-size: 22px; font-weight: 700; color: var(--text); }
+    .header-sub { font-size: 12px; color: var(--muted); }
+    .header-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+    .badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .badge span { color: var(--text); font-weight: 600; }
+
+    /* ── ORDEN ORQUESTADOR ── */
+    .orden-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 32px;
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .orden-item { display: flex; gap: 8px; align-items: baseline; }
+    .orden-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+    .orden-value { font-size: 12px; color: var(--text); }
+    .orden-divider { width: 1px; height: 24px; background: var(--border); }
+
+    /* ── LAYOUT ── */
+    .main { padding: 24px 32px; display: flex; flex-direction: column; gap: 24px; }
+
+    /* ── TOGGLE TABS ── */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+      width: fit-content;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: var(--surface2);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+
+    /* ── KPI CARDS ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: default;
+    }
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 12px 12px 0 0;
+    }
+    .kpi-card.slh::before { background: var(--slh); }
+    .kpi-card.bpo::before { background: var(--bpo); }
+    .kpi-card.ioda::before { background: var(--ioda); }
+    .kpi-card.total::before { background: var(--gold); }
+
+    .kpi-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; }
+    .kpi-value { font-size: 36px; font-weight: 700; line-height: 1; margin-bottom: 8px; }
+    .kpi-card.slh .kpi-value { color: var(--slh); }
+    .kpi-card.bpo .kpi-value { color: var(--bpo); }
+    .kpi-card.ioda .kpi-value { color: var(--ioda); }
+    .kpi-card.total .kpi-value { color: var(--gold); }
+    .kpi-pct {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .kpi-pct-pill {
+      background: var(--surface2);
+      border-radius: 20px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .kpi-card.slh .kpi-pct-pill { color: var(--slh); }
+    .kpi-card.bpo .kpi-pct-pill { color: var(--bpo); }
+    .kpi-card.ioda .kpi-pct-pill { color: var(--ioda); }
+    .kpi-mini-bar {
+      margin-top: 14px;
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .kpi-mini-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 1s ease;
+    }
+    .slh .kpi-mini-bar-fill { background: var(--slh); }
+    .bpo .kpi-mini-bar-fill { background: var(--bpo); }
+    .ioda .kpi-mini-bar-fill { background: var(--ioda); }
+
+    /* ── CHART GRID ── */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+    }
+    .chart-grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .chart-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+    .chart-card-title { font-size: 14px; font-weight: 600; color: var(--text); }
+    .chart-card-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .chart-legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .chart-wrap { position: relative; }
+
+    /* ── TABLE ── */
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .table-card-header {
+      padding: 20px 24px 0;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th {
+      background: var(--surface2);
+      padding: 10px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th:not(:first-child) { text-align: right; }
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text);
+    }
+    td:not(:first-child) { text-align: right; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.03); }
+    .td-unit { font-weight: 600; }
+    .td-unit.slh { color: var(--slh); }
+    .td-unit.bpo { color: var(--bpo); }
+    .td-unit.ioda { color: var(--ioda); }
+    .td-total-row td { background: var(--surface2); font-weight: 700; color: var(--gold); }
+    .td-pct { color: var(--muted); font-size: 12px; }
+
+    /* ── INSIGHTS ── */
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .insight-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .insight-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .insight-icon.warn { background: rgba(247,129,102,0.15); }
+    .insight-icon.info { background: rgba(88,166,255,0.15); }
+    .insight-icon.ok   { background: rgba(63,185,80,0.15); }
+    .insight-icon.flag { background: rgba(227,179,65,0.15); }
+    .insight-title { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .insight-body { font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .insight-body strong { color: var(--text); }
+
+    /* ── FOOTER ── */
+    .footer {
+      border-top: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-text { font-size: 11px; color: var(--muted); }
+
+    /* ── VIEW PANELS ── */
+    .view-panel { display: none; }
+    .view-panel.active { display: contents; }
+
+    /* ── ANIMATE ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .anim { animation: fadeUp 0.4s ease forwards; }
+
+    @media (max-width: 900px) {
+      .chart-grid { grid-template-columns: 1fr; }
+      .chart-grid-3 { grid-template-columns: 1fr; }
+      .header { flex-direction: column; align-items: flex-start; }
+      .orden-bar { padding: 12px 16px; gap: 12px; }
+      .main { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header class="header">
+  <div class="header-left">
+    <div class="header-tag">ORDEN DE CONSOLIDACIÓN OPERATIVA · DATA ANALYTICS</div>
+    <div class="header-title">Propuestas Presentadas — GSH</div>
+    <div class="header-sub">Análisis de participación mensual y acumulada por unidad de negocio</div>
+  </div>
+  <div class="header-meta">
+    <div class="badge">Periodo: <span>Enero – Mayo 2026</span></div>
+    <div class="badge">Total: <span>180 propuestas</span></div>
+    <div class="badge">Fuente: <span>CRM GSH / GSH_Datos.xlsx</span></div>
+  </div>
+</header>
+
+<!-- ── BARRA ORQUESTADOR ── -->
+<div class="orden-bar">
+  <div class="orden-item">
+    <span class="orden-label">Unidades</span>
+    <span class="orden-value">SLH · BPO · IODA</span>
+  </div>
+  <div class="orden-divider"></div>
+  <div class="orden-item">
+    <span class="orden-label">Fuentes</span>
+    <span class="orden-value">CRM · HubSpot</span>
+  </div>
+  <div class="orden-divider"></div>
+  <div class="orden-item">
+    <span class="orden-label">Instrucción AGE-002</span>
+    <span class="orden-value">Correlacionar participación con tasa de cierre por unidad</span>
+  </div>
+  <div class="orden-divider"></div>
+  <div class="orden-item">
+    <span class="orden-label">Control de calidad</span>
+    <span class="orden-value">Sin valores nulos en rango evaluado</span>
+  </div>
+</div>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <!-- TABS -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('resumen')">Resumen</button>
+    <button class="tab-btn" onclick="switchTab('mensual')">Mensual</button>
+    <button class="tab-btn" onclick="switchTab('tabla')">Tabla detalle</button>
+    <button class="tab-btn" onclick="switchTab('insights')">Hallazgos</button>
+  </div>
+
+  <!-- ══ PANEL: RESUMEN ══ -->
+  <div id="panel-resumen" class="view-panel active">
+
+    <!-- KPIs -->
+    <div class="kpi-grid anim">
+      <div class="kpi-card total">
+        <div class="kpi-label">Total periodo</div>
+        <div class="kpi-value" style="color:var(--gold)">180</div>
+        <div class="kpi-pct">Propuestas consolidadas · Ene–May</div>
+      </div>
+      <div class="kpi-card slh">
+        <div class="kpi-label">SLH</div>
+        <div class="kpi-value">63</div>
+        <div class="kpi-pct">Participación <span class="kpi-pct-pill">35.0%</span></div>
+        <div class="kpi-mini-bar"><div class="kpi-mini-bar-fill" style="width:35%"></div></div>
+      </div>
+      <div class="kpi-card bpo">
+        <div class="kpi-label">BPO</div>
+        <div class="kpi-value">64</div>
+        <div class="kpi-pct">Participación <span class="kpi-pct-pill">35.6%</span></div>
+        <div class="kpi-mini-bar"><div class="kpi-mini-bar-fill" style="width:35.6%"></div></div>
+      </div>
+      <div class="kpi-card ioda">
+        <div class="kpi-label">IODA</div>
+        <div class="kpi-value">53</div>
+        <div class="kpi-pct">Participación <span class="kpi-pct-pill">29.4%</span></div>
+        <div class="kpi-mini-bar"><div class="kpi-mini-bar-fill" style="width:29.4%"></div></div>
+      </div>
+    </div>
+
+    <!-- Charts row 1 -->
+    <div class="chart-grid anim">
+      <!-- Barras agrupadas -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <div class="chart-card-title">Propuestas presentadas por mes y unidad</div>
+            <div class="chart-card-sub">Distribución absoluta mensual</div>
+          </div>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--slh)"></div>SLH</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--bpo)"></div>BPO</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--ioda)"></div>IODA</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="barAgrupado" height="220"></canvas></div>
+      </div>
+      <!-- Donut -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <div class="chart-card-title">Distribución acumulada</div>
+            <div class="chart-card-sub">Peso sobre el total del periodo</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="donutTotal" height="220"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Línea total mes -->
+    <div class="chart-card anim">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-card-title">Volumen total mensual consolidado</div>
+          <div class="chart-card-sub">Caída acumulada: −50.9% (enero→mayo)</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="lineTotal" height="120"></canvas></div>
+    </div>
+
+  </div>
+
+  <!-- ══ PANEL: MENSUAL ══ -->
+  <div id="panel-mensual" class="view-panel">
+
+    <div class="chart-grid-3 anim">
+      <!-- Barras 100% apiladas -->
+      <div class="chart-card" style="grid-column: span 2;">
+        <div class="chart-card-header">
+          <div>
+            <div class="chart-card-title">Participación porcentual mensual (% sobre total del mes)</div>
+            <div class="chart-card-sub">Barras apiladas al 100%</div>
+          </div>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--slh)"></div>SLH</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--bpo)"></div>BPO</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--ioda)"></div>IODA</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="barStacked100" height="240"></canvas></div>
+      </div>
+
+      <!-- Radar -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <div class="chart-card-title">Perfil por unidad</div>
+            <div class="chart-card-sub">Radar mensual</div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="radarChart" height="240"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Líneas por unidad -->
+    <div class="chart-card anim">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-card-title">Tendencia mensual por unidad</div>
+          <div class="chart-card-sub">Evolución de propuestas presentadas — valores absolutos</div>
+        </div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--slh)"></div>SLH</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--bpo)"></div>BPO</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--ioda)"></div>IODA</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="lineUnidades" height="140"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ══ PANEL: TABLA ══ -->
+  <div id="panel-tabla" class="view-panel">
+    <div class="table-card anim">
+      <div class="table-card-header">
+        <div>
+          <div class="chart-card-title">Tabla detallada · Propuestas Presentadas</div>
+          <div class="chart-card-sub">Valores absolutos y participación mensual / sobre el periodo</div>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Unidad</th>
+            <th>Enero</th>
+            <th>Febrero</th>
+            <th>Marzo</th>
+            <th>Abril</th>
+            <th>Mayo</th>
+            <th>Total</th>
+            <th>% Periodo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-unit slh">SLH</td>
+            <td>17 <span class="td-pct">(30.9%)</span></td>
+            <td>18 <span class="td-pct">(50.0%)</span></td>
+            <td>11 <span class="td-pct">(34.4%)</span></td>
+            <td>11 <span class="td-pct">(36.7%)</span></td>
+            <td>6 <span class="td-pct">(22.2%)</span></td>
+            <td><strong>63</strong></td>
+            <td>35.0%</td>
+          </tr>
+          <tr>
+            <td class="td-unit bpo">BPO</td>
+            <td>25 <span class="td-pct">(45.5%)</span></td>
+            <td>4 <span class="td-pct">(11.1%)</span></td>
+            <td>13 <span class="td-pct">(40.6%)</span></td>
+            <td>9 <span class="td-pct">(30.0%)</span></td>
+            <td>13 <span class="td-pct">(48.1%)</span></td>
+            <td><strong>64</strong></td>
+            <td>35.6%</td>
+          </tr>
+          <tr>
+            <td class="td-unit ioda">IODA</td>
+            <td>13 <span class="td-pct">(23.6%)</span></td>
+            <td>14 <span class="td-pct">(38.9%)</span></td>
+            <td>8 <span class="td-pct">(25.0%)</span></td>
+            <td>10 <span class="td-pct">(33.3%)</span></td>
+            <td>8 <span class="td-pct">(29.6%)</span></td>
+            <td><strong>53</strong></td>
+            <td>29.4%</td>
+          </tr>
+        </tbody>
+        <tbody>
+          <tr class="td-total-row">
+            <td>TOTAL MES</td>
+            <td>55 <span style="font-weight:400;font-size:12px;color:var(--muted)">(30.6%)</span></td>
+            <td>36 <span style="font-weight:400;font-size:12px;color:var(--muted)">(20.0%)</span></td>
+            <td>32 <span style="font-weight:400;font-size:12px;color:var(--muted)">(17.8%)</span></td>
+            <td>30 <span style="font-weight:400;font-size:12px;color:var(--muted)">(16.7%)</span></td>
+            <td>27 <span style="font-weight:400;font-size:12px;color:var(--muted)">(15.0%)</span></td>
+            <td>180</td>
+            <td>100%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Segunda tabla: % mensuales puros -->
+    <div class="table-card anim" style="margin-top:16px;">
+      <div class="table-card-header">
+        <div>
+          <div class="chart-card-title">Participación porcentual mensual por unidad</div>
+          <div class="chart-card-sub">% de cada unidad sobre el total de ese mes</div>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Unidad</th>
+            <th>Enero</th>
+            <th>Febrero</th>
+            <th>Marzo</th>
+            <th>Abril</th>
+            <th>Mayo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-unit slh">SLH</td>
+            <td>30.9%</td><td>50.0%</td><td>34.4%</td><td>36.7%</td><td>22.2%</td>
+          </tr>
+          <tr>
+            <td class="td-unit bpo">BPO</td>
+            <td>45.5%</td><td>11.1%</td><td>40.6%</td><td>30.0%</td><td>48.1%</td>
+          </tr>
+          <tr>
+            <td class="td-unit ioda">IODA</td>
+            <td>23.6%</td><td>38.9%</td><td>25.0%</td><td>33.3%</td><td>29.6%</td>
+          </tr>
+        </tbody>
+        <tbody>
+          <tr class="td-total-row">
+            <td>TOTAL</td>
+            <td>100%</td><td>100%</td><td>100%</td><td>100%</td><td>100%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ PANEL: INSIGHTS ══ -->
+  <div id="panel-insights" class="view-panel">
+    <div class="insights-grid anim">
+      <div class="insight-card">
+        <div class="insight-icon warn">📉</div>
+        <div>
+          <div class="insight-title">Caída sostenida del volumen total</div>
+          <div class="insight-body">El total mensual cayó de <strong>55 en enero</strong> a <strong>27 en mayo</strong>, una reducción del <strong>50.9%</strong> en el periodo. Ningún mes registró recuperación — tendencia decreciente lineal.</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon flag">⚡</div>
+        <div>
+          <div class="insight-title">BPO: alta volatilidad interna</div>
+          <div class="insight-body">BPO pasó de <strong>25 propuestas en enero</strong> a <strong>4 en febrero</strong> (−84%), y rebotó a 13 en marzo y mayo. Señal de dependencia a campañas puntuales o ciclos de prospección discontinuos.</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon warn">📊</div>
+        <div>
+          <div class="insight-title">SLH: declive sostenido desde febrero</div>
+          <div class="insight-body">SLH lideró en febrero con <strong>50.0% del mes</strong>, pero desde entonces decrece sin interrupción hasta <strong>22.2% en mayo</strong> — el mínimo de participación mensual del periodo para esta unidad.</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon ok">✅</div>
+        <div>
+          <div class="insight-title">IODA: distribución más estable</div>
+          <div class="insight-body">IODA mantiene participación entre <strong>23.6% y 38.9%</strong> sin picos extremos. Aunque es la unidad con menor volumen acumulado (<strong>29.4%</strong>), presenta el comportamiento más predecible.</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon info">🔍</div>
+        <div>
+          <div class="insight-title">BPO y SLH empatan en acumulado</div>
+          <div class="insight-body">BPO (64) y SLH (63) difieren en apenas <strong>1 propuesta</strong> sobre 180 — 35.6% vs 35.0%. La competencia es marginal; la diferencia de impacto real está en <strong>tasa de cierre</strong>, pendiente de cruzar con AGE-002.</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon flag">🎯</div>
+        <div>
+          <div class="insight-title">Instrucción AGE-002</div>
+          <div class="insight-body">Correlacionar propuestas presentadas con negocios cerrados por unidad para calcular <strong>tasa de conversión real</strong>. SLH cerró 5 de 63 (7.9%), BPO 11 de 64 (17.2%), IODA 4 de 53 (7.5%).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── FOOTER ── -->
+<footer class="footer">
+  <div class="footer-text">GSH · Agente Orquestador de Analítica · Periodo: Ene–May 2026 · Fuente: GSH_Datos.xlsx</div>
+  <div class="footer-text">AGE-001 → AGE-002 · Gobernanza de datos activa</div>
+</footer>
+
+<script>
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo'];
+  const SLH   = [17, 18, 11, 11, 6];
+  const BPO   = [25,  4, 13,  9,13];
+  const IODA  = [13, 14,  8, 10, 8];
+  const TOT   = [55, 36, 32, 30,27];
+
+  // Pct mensual
+  const SLH_PCT  = SLH.map((v,i)  => +(v/TOT[i]*100).toFixed(1));
+  const BPO_PCT  = BPO.map((v,i)  => +(v/TOT[i]*100).toFixed(1));
+  const IODA_PCT = IODA.map((v,i) => +(v/TOT[i]*100).toFixed(1));
+
+  const C = { slh:'#58a6ff', bpo:'#3fb950', ioda:'#f78166', gold:'#e3b341', muted:'#8b949e' };
+
+  const gridOpts = {
+    color: 'rgba(255,255,255,0.06)',
+  };
+  const baseFont = { color: '#8b949e', family: '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', size: 12 };
+
+  // ── BAR AGRUPADO ──
+  new Chart(document.getElementById('barAgrupado'), {
+    type: 'bar',
+    data: {
+      labels: MESES,
+      datasets: [
+        { label:'SLH',  data: SLH,  backgroundColor: C.slh  + 'cc', borderColor: C.slh,  borderWidth:1, borderRadius:4 },
+        { label:'BPO',  data: BPO,  backgroundColor: C.bpo  + 'cc', borderColor: C.bpo,  borderWidth:1, borderRadius:4 },
+        { label:'IODA', data: IODA, backgroundColor: C.ioda + 'cc', borderColor: C.ioda, borderWidth:1, borderRadius:4 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend:{ display:false }, tooltip:{ callbacks:{
+        label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y} propuestas`
+      }}},
+      scales: {
+        x: { grid:{ color:'rgba(255,255,255,0.05)' }, ticks:{ color: C.muted, font:{ size:12 } } },
+        y: { grid: gridOpts, ticks:{ color: C.muted, font:{ size:12 }, stepSize:5 } }
+      }
+    }
+  });
+
+  // ── DONUT ──
+  new Chart(document.getElementById('donutTotal'), {
+    type: 'doughnut',
+    data: {
+      labels: ['SLH (35.0%)', 'BPO (35.6%)', 'IODA (29.4%)'],
+      datasets: [{
+        data: [63, 64, 53],
+        backgroundColor: [C.slh, C.bpo, C.ioda],
+        borderColor: '#161b22',
+        borderWidth: 3,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      cutout: '68%',
+      plugins: {
+        legend: { position:'bottom', labels:{ color: C.muted, padding:16, font:{ size:12 }, boxWidth:12, borderRadius:2 } },
+        tooltip: { callbacks:{ label: ctx => ` ${ctx.label}: ${ctx.parsed} propuestas` }}
+      }
+    }
+  });
+
+  // ── LINE TOTAL ──
+  new Chart(document.getElementById('lineTotal'), {
+    type: 'line',
+    data: {
+      labels: MESES,
+      datasets: [{
+        label:'Total propuestas',
+        data: TOT,
+        borderColor: C.gold,
+        backgroundColor: C.gold + '22',
+        borderWidth: 2.5,
+        pointBackgroundColor: C.gold,
+        pointRadius: 5,
+        fill: true,
+        tension: 0.35
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend:{ display:false }, tooltip:{ callbacks:{
+        label: ctx => ` Total: ${ctx.parsed.y} propuestas (${(ctx.parsed.y/180*100).toFixed(1)}% del periodo)`
+      }}},
+      scales: {
+        x: { grid:{ color:'rgba(255,255,255,0.05)' }, ticks:{ color: C.muted } },
+        y: { grid: gridOpts, ticks:{ color: C.muted, stepSize:10 }, min:0, max:65 }
+      }
+    }
+  });
+
+  // ── BAR STACKED 100% ──
+  new Chart(document.getElementById('barStacked100'), {
+    type: 'bar',
+    data: {
+      labels: MESES,
+      datasets: [
+        { label:'SLH',  data: SLH_PCT,  backgroundColor: C.slh  + 'dd', borderColor: C.slh,  borderWidth:1, borderRadius:0 },
+        { label:'BPO',  data: BPO_PCT,  backgroundColor: C.bpo  + 'dd', borderColor: C.bpo,  borderWidth:1, borderRadius:0 },
+        { label:'IODA', data: IODA_PCT, backgroundColor: C.ioda + 'dd', borderColor: C.ioda, borderWidth:1, borderRadius:0 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` }}
+      },
+      scales: {
+        x: { stacked:true, grid:{ color:'rgba(255,255,255,0.05)' }, ticks:{ color: C.muted } },
+        y: { stacked:true, grid: gridOpts, ticks:{ color: C.muted, callback: v => v+'%' }, min:0, max:100 }
+      }
+    }
+  });
+
+  // ── RADAR ──
+  new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+      labels: MESES,
+      datasets: [
+        { label:'SLH',  data: SLH,  borderColor: C.slh,  backgroundColor: C.slh  +'33', pointBackgroundColor: C.slh,  borderWidth:2, pointRadius:3 },
+        { label:'BPO',  data: BPO,  borderColor: C.bpo,  backgroundColor: C.bpo  +'33', pointBackgroundColor: C.bpo,  borderWidth:2, pointRadius:3 },
+        { label:'IODA', data: IODA, borderColor: C.ioda, backgroundColor: C.ioda +'33', pointBackgroundColor: C.ioda, borderWidth:2, pointRadius:3 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend:{ display:false } },
+      scales: {
+        r: {
+          backgroundColor: 'rgba(255,255,255,0.02)',
+          grid:{ color:'rgba(255,255,255,0.08)' },
+          angleLines:{ color:'rgba(255,255,255,0.06)' },
+          pointLabels:{ color: C.muted, font:{ size:11 } },
+          ticks:{ color:'rgba(255,255,255,0)', backdropColor:'transparent', stepSize:5 },
+          min:0
+        }
+      }
+    }
+  });
+
+  // ── LINE UNIDADES ──
+  new Chart(document.getElementById('lineUnidades'), {
+    type: 'line',
+    data: {
+      labels: MESES,
+      datasets: [
+        { label:'SLH',  data: SLH,  borderColor: C.slh,  backgroundColor:'transparent', borderWidth:2.5, pointBackgroundColor: C.slh,  pointRadius:5, tension:0.3 },
+        { label:'BPO',  data: BPO,  borderColor: C.bpo,  backgroundColor:'transparent', borderWidth:2.5, pointBackgroundColor: C.bpo,  pointRadius:5, tension:0.3 },
+        { label:'IODA', data: IODA, borderColor: C.ioda, backgroundColor:'transparent', borderWidth:2.5, pointBackgroundColor: C.ioda, pointRadius:5, tension:0.3 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}` }}
+      },
+      scales: {
+        x: { grid:{ color:'rgba(255,255,255,0.05)' }, ticks:{ color: C.muted } },
+        y: { grid: gridOpts, ticks:{ color: C.muted, stepSize:5 }, min:0 }
+      }
+    }
+  });
+
+  // ── TAB SWITCHER ──
+  function switchTab(name) {
+    document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-'+name).classList.add('active');
+    event.target.classList.add('active');
+    // Trigger resize so charts render correctly on reveal
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+  }
+</script>
+</body>
+</html>
